@@ -1,17 +1,22 @@
-# SPDX-License-Identifier: MIT
-#
-# Copyright (c) 2021 Joshua Watt <JPEWhacker@gmail.com>
-#
-# Dockerfile to build a bitbake hash equivalence server container
-#
-# From the root of the bitbake repository, run:
-#
-#   docker build -f contrib/hashserv/Dockerfile .
-#
+FROM ubuntu:20.04
 
-FROM alpine:3.13.1
+# fix locales
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends locales \
+    && rm -rf /var/lib/apt/lists/* \
+    && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
 
-RUN apk add --no-cache python3
+ENV LANG en_US.utf8
+
+# install blobfuse
+RUN apt-get update \
+    && apt-get install -y wget apt-utils \
+    && wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb \
+    && dpkg -i packages-microsoft-prod.deb \
+    && apt-get remove -y wget \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends fuse blobfuse libcurl3-gnutls libgnutls30 python3 \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY bin/bitbake-hashserv /opt/bbhashserv/bin/
 COPY lib/hashserv /opt/bbhashserv/lib/hashserv/
@@ -19,5 +24,8 @@ COPY lib/bb /opt/bbhashserv/lib/bb/
 COPY lib/codegen.py /opt/bbhashserv/lib/codegen.py
 COPY lib/ply /opt/bbhashserv/lib/ply/
 COPY lib/bs4 /opt/bbhashserv/lib/bs4/
+COPY contrib/hashserv/mount_and_start.sh /opt/bbhashserv/bin/mount_and_start
 
-ENTRYPOINT ["/opt/bbhashserv/bin/bitbake-hashserv"]
+RUN chmod 777 /opt/bbhashserv/bin/mount_and_start
+
+ENTRYPOINT ["/opt/bbhashserv/bin/mount_and_start"]
